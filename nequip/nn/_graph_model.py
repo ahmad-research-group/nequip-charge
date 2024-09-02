@@ -34,6 +34,7 @@ class GraphModel(GraphModuleMixin, torch.nn.Module):
         irreps_in = {
             # Things that always make sense as inputs:
             AtomicDataDict.POSITIONS_KEY: "1o",
+            AtomicDataDict.TOTAL_CHARGE_KEY: "1x0e",
             AtomicDataDict.EDGE_INDEX_KEY: None,
             AtomicDataDict.EDGE_CELL_SHIFT_KEY: None,
             AtomicDataDict.CELL_KEY: "1o",  # 3 of them, but still

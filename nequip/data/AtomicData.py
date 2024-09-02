@@ -56,6 +56,7 @@ _DEFAULT_EDGE_FIELDS: Set[str] = {
 }
 _DEFAULT_GRAPH_FIELDS: Set[str] = {
     AtomicDataDict.TOTAL_ENERGY_KEY,
+    AtomicDataDict.TOTAL_CHARGE_KEY,
     AtomicDataDict.STRESS_KEY,
     AtomicDataDict.VIRIAL_KEY,
     AtomicDataDict.PBC_KEY,
@@ -437,11 +438,13 @@ class AtomicData(Data):
 
         km = {
             "forces": AtomicDataDict.FORCE_KEY,
+            "initial_charges": AtomicDataDict.CHARGES_KEY,
             "energy": AtomicDataDict.TOTAL_ENERGY_KEY,
         }
         km.update(key_mapping)
         key_mapping = km
 
+        include_keys.append("initial_charges")
         add_fields = {}
 
         # Get info from atoms.arrays; lowest priority. copy first
@@ -479,7 +482,7 @@ class AtomicData(Data):
                 )
 
         add_fields[AtomicDataDict.ATOMIC_NUMBERS_KEY] = atoms.get_atomic_numbers()
-
+        # add_fields[AtomicDataDict.TOTAL_CHARGE_KEY] = np.array([[float(0)]])
         # cell and pbc in kwargs can override the ones stored in atoms
         cell = kwargs.pop("cell", atoms.get_cell())
         pbc = kwargs.pop("pbc", atoms.pbc)

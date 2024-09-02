@@ -149,3 +149,7 @@ class NequIPCalculator(Calculator):
             # ase wants voigt format
             stress_voigt = full_3x3_to_voigt_6_stress(stress)
             self.results["stress"] = stress_voigt
+
+        if AtomicDataDict.CHARGES_KEY in out:
+            charges = out[AtomicDataDict.CHARGES_KEY].detach().cpu().numpy()
+            self.results['charges'] = charges

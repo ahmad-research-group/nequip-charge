@@ -2,22 +2,26 @@ from typing import Optional
 import logging
 
 from e3nn import o3
+from e3nn.o3 import Irreps
 
-from nequip.data import AtomicDataDict, AtomicDataset
+from nequip.data import AtomicDataDict, AtomicDataset, register_fields
 from nequip.nn import (
     SequentialGraphNetwork,
     AtomwiseLinear,
     AtomwiseReduce,
     ConvNetLayer,
 )
+
 from nequip.nn.embedding import (
-    OneHotAtomEncoding,
+    OneHotAtomEncoding, ChargeEncoding,
     RadialBasisEdgeEncoding,
     SphericalHarmonicEdgeAttrs,
 )
 
 from . import builder_utils
-
+from nequip.nn._ewald import EwaldQeq
+from nequip.nn._electrostatic import SumEnergies
+from nequip.data._keys import CHARGES_KEY, ELECTROSTATIC_ENERGY_KEY,TOTAL_CHARGE_KEY
 
 def SimpleIrrepsConfig(config, prefix: Optional[str] = None):
     """Builder that pre-processes options to allow "simple" configuration of irreps."""
@@ -96,7 +100,9 @@ def EnergyModel(
         config=config, initialize=initialize, dataset=dataset
     )
 
+    energy_scale = config.get("_global_scale", 1.0)
     num_layers = config.get("num_layers", 3)
+    num_layers_charge = config.get("num_layers_charge", 3)
 
     layers = {
         # -- Encode --
@@ -111,6 +117,26 @@ def EnergyModel(
     # insertion preserves order
     for layer_i in range(num_layers):
         layers[f"layer{layer_i}_convnet"] = ConvNetLayer
+    
+    
+    layers["before_charge_prediction"] = AtomwiseLinear
+    config['before_charge_prediction_irreps_out'] = repr(o3.Irreps([(config.get("num_features"), (0, 1))]))
+                                         
+
+    layers["total_energy_with_qeq"] = (
+                EwaldQeq,
+                dict(scale=energy_scale), #energy_scale
+            )
+
+    #Calculate the charges using Qeq
+    layers["one_hot2"] = ChargeEncoding
+    layers["spharm_edges2"] = SphericalHarmonicEdgeAttrs
+    layers["radial_basis2"] = RadialBasisEdgeEncoding
+    layers["chemical_charge_embedding"] = AtomwiseLinear
+    config['chemical_charge_embedding_irreps_out'] = repr(o3.Irreps([(config.get("num_features"), (0, 1))]))
+
+    for layer_i in range(num_layers_charge):
+        layers[f"layer{layer_i}_charge_convnet"] = ConvNetLayer
 
     # .update also maintains insertion order
     layers.update(
@@ -133,6 +159,17 @@ def EnergyModel(
             out_field=AtomicDataDict.TOTAL_ENERGY_KEY,
         ),
     )
+
+    layers["sum_energy_terms"] = (
+            SumEnergies,
+            dict(
+                input_fields=[AtomicDataDict.TOTAL_ENERGY_KEY, ELECTROSTATIC_ENERGY_KEY],
+            ),
+        )
+
+    # irreps_in = {
+    #     TOTAL_CHARGE_KEY: Irreps("1x0e")
+    # }
 
     return SequentialGraphNetwork.from_parameters(
         shared_params=config,

@@ -1,4 +1,4 @@
-from ._one_hot import OneHotAtomEncoding
+from ._one_hot import OneHotAtomEncoding, ChargeEncoding
 from ._edge import (
     SphericalHarmonicEdgeAttrs,
     RadialBasisEdgeEncoding,
@@ -7,6 +7,7 @@ from ._edge import (
 
 __all__ = [
     OneHotAtomEncoding,
+    ChargeEncoding,
     SphericalHarmonicEdgeAttrs,
     RadialBasisEdgeEncoding,
     AddRadialCutoffToData,
