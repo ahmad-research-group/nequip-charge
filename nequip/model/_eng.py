@@ -20,7 +20,7 @@ from nequip.nn.embedding import (
 
 from . import builder_utils
 from nequip.nn._ewald import EwaldQeq
-from nequip.nn._electrostatic import SumEnergies
+from nequip.nn._electrostatic import SumEnergies, Qeq
 from nequip.data._keys import CHARGES_KEY, ELECTROSTATIC_ENERGY_KEY,TOTAL_CHARGE_KEY
 
 def SimpleIrrepsConfig(config, prefix: Optional[str] = None):
@@ -103,6 +103,7 @@ def EnergyModel(
     energy_scale = config.get("_global_scale", 1.0)
     num_layers = config.get("num_layers", 3)
     num_layers_charge = config.get("num_layers_charge", 3)
+    pbc = config.get("pbc", False)
 
     layers = {
         # -- Encode --
@@ -122,11 +123,16 @@ def EnergyModel(
     layers["before_charge_prediction"] = AtomwiseLinear
     config['before_charge_prediction_irreps_out'] = repr(o3.Irreps([(config.get("num_features"), (0, 1))]))
                                          
-
-    layers["total_energy_with_qeq"] = (
-                EwaldQeq,
-                dict(scale=energy_scale), #energy_scale
-            )
+    if pbc:
+        layers["total_energy_with_qeq"] = (
+                    EwaldQeq,
+                    dict(scale=energy_scale), #energy_scale
+                )
+    else:
+        layers["total_energy_with_qeq"] = (
+                    Qeq,
+                    dict(scale=energy_scale), #energy_scale
+                )
 
     #Calculate the charges using Qeq
     layers["one_hot2"] = ChargeEncoding
