@@ -101,8 +101,7 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
 
         # sigma: species_index (0-indexed) -> covalent radius
         covalent_radii_for_atoms = covalent_radii[atomic_numbers]
-        my_covalent_radii = [x for _, x in sorted(zip(atomic_numbers, covalent_radii_for_atoms))]
-        self.sigma = torch.from_numpy(np.array(my_covalent_radii))
+        self.sigma = torch.tensor([x for _, x in sorted(zip(atomic_numbers, covalent_radii_for_atoms))])
         if len(atomic_numbers) == 1:
             self.sigma = torch.unsqueeze(self.sigma, 0)
 
@@ -120,86 +119,81 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
         chi = self.to_chi(data[AtomicDataDict.NODE_FEATURES_KEY])  # (num_atoms, 1)
         # square here to restrit hardness to be positive!
         hardness = torch.square(self.to_hardness[species_idx])  # (num_atoms, )
+
+        # if every data points has equal number of atoms
         data = AtomicDataDict.with_batch(data)
         Natoms = bincount(data[AtomicDataDict.BATCH_KEY]) #(batch size)
-        assert torch.unique(Natoms).numel() == 1 #This works only if all batches have same no of atoms
-        natoms = int(Natoms[0])
-        # ptr = data["ptr"]
-        batch_size = int(torch.unique(data[AtomicDataDict.BATCH_KEY]).shape[0])  #batch_size = ptr.shape[0] - 1
-        #This part assumes same no of atoms in all batches
-        coeffs = torch.ones((batch_size, natoms + 1, natoms + 1), device = device)
-        energy_matrices = torch.stack([
-            ewald_bi.get_qeq_matrix(hardness_bi)
-                    for (ewald_bi, hardness_bi) in 
-                zip([EwaldAuxiliary(cell=cell_bi, pos=pos_bi, sigmas=sigmas_bi, point_charge=False) for cell_bi, pos_bi, sigmas_bi in 
-                     zip(data[AtomicDataDict.CELL_KEY].view(batch_size,3,3), data[AtomicDataDict.POSITIONS_KEY].view(batch_size,-1,3), sigmas.view(batch_size,-1))], 
-                    [hardness_bi for hardness_bi in hardness.view(batch_size,-1)] )
-                                                                ])
-        coeffs[:, :-1, :-1] = energy_matrices
-        coeffs[:, -1, -1] = 0.0
-        # torch.set_printoptions(threshold=10000)  # print the tensor fully
-        rhs = torch.cat((-chi.view(batch_size,-1), data[TOTAL_CHARGE_KEY]), dim=-1)
-        # Solve Qeq for all batches
-#        torch.set_printoptions(threshold=100000)  # print the tensor fully
-        # print('positions = ', data[AtomicDataDict.POSITIONS_KEY])
-        # print('coeffs = ', coeffs)
-        # print('rhs = ', rhs)
-        charges_and_lambda = torch.linalg.solve(coeffs, rhs)
-        # Extract charges and electrostatic energy
-        charges = charges_and_lambda[:, :-1]
-#        [torch.squeeze(charges_and_lambda, dim=0)[:-1].unsqueeze(-1) for charges_and_lambda in charges_and_lambda]
-        ele = [  0.5 * torch.sum(energy_matrix * charges_bi[:, None] * charges_bi[None, :]) + torch.sum(charges_bi * chi_bi)
-                    for energy_matrix, charges_bi, chi_bi in zip(energy_matrices, charges, chi) ]
-        ele = [e_qeq_bi / self.scale for e_qeq_bi in ele]
-        ele = torch.stack(ele)
-        # for bi in range(batch_size):
-        #     num_atoms_bi = int(Natoms[bi])
-        #     cell_bi = data[AtomicDataDict.CELL_KEY][bi]
-        #     #pos_bi = data[AtomicDataDict.POSITIONS_KEY][int(ptr[bi]) : int(ptr[bi + 1])]
-        #     pos_bi = data[AtomicDataDict.POSITIONS_KEY][first_atom_index : first_atom_index + num_atoms_bi]
-        #     sigmas_bi = sigmas[first_atom_index : first_atom_index + num_atoms_bi]
-        #     ewald_bi = EwaldAuxiliary(
-        #         cell=cell_bi,
-        #         pos=pos_bi,
-        #         sigmas=sigmas_bi,
-        #         point_charge=False,
-        #     )
+        if torch.unique(Natoms).numel() == 1: #This works only if all batches have same no of atoms
+            natoms = int(Natoms[0])
+            # ptr = data["ptr"]
+            batch_size = int(torch.unique(data[AtomicDataDict.BATCH_KEY]).shape[0])  #batch_size = ptr.shape[0] - 1
+            #This part assumes same no of atoms in all batches
+            coeffs = torch.ones((batch_size, natoms + 1, natoms + 1), device = device)
+            energy_matrices = torch.stack([
+                ewald_bi.get_qeq_matrix(hardness_bi)
+                        for (ewald_bi, hardness_bi) in 
+                    zip([EwaldAuxiliary(cell=cell_bi, pos=pos_bi, sigmas=sigmas_bi, point_charge=False) for cell_bi, pos_bi, sigmas_bi in 
+                        zip(data[AtomicDataDict.CELL_KEY].view(batch_size,3,3), data[AtomicDataDict.POSITIONS_KEY].view(batch_size,-1,3), sigmas.view(batch_size,-1))], 
+                        [hardness_bi for hardness_bi in hardness.view(batch_size,-1)] )
+                                                                    ])
+            coeffs[:, :-1, :-1] = energy_matrices
+            coeffs[:, -1, -1] = 0.0
+            rhs = torch.cat((-chi.view(batch_size,-1), data[TOTAL_CHARGE_KEY]), dim=-1)
+            # Solve Qeq for all batches
+            charges_and_lambda = torch.linalg.solve(coeffs, rhs)
+            # Extract charges and electrostatic energy
+            charges = charges_and_lambda[:, :-1]
+            ele = [  0.5 * torch.sum(energy_matrix * charges_bi[:, None] * charges_bi[None, :]) + torch.sum(charges_bi * chi_bi)
+                        for energy_matrix, charges_bi, chi_bi in zip(energy_matrices, charges, chi) ]
+            ele = [e_qeq_bi / self.scale for e_qeq_bi in ele]
+            ele = torch.stack(ele)
 
-        #     # coefficient matrix for Qeq
-        #     hardness_bi = hardness[first_atom_index : first_atom_index + num_atoms_bi]
-        #     # num_atoms_bi = int(ptr[bi + 1]) - int(ptr[bi])
-        #     # print(num_atoms_bi)
-        #     # print('Type of num_atoms_bi = ', type(num_atoms_bi))
-        #     coeffs_bi = torch.ones((num_atoms_bi + 1, num_atoms_bi + 1), device=device)
-        #     energy_matrix_bi = ewald_bi.get_qeq_matrix(hardness_bi)
-        #     coeffs_bi[:num_atoms_bi, :num_atoms_bi] = energy_matrix_bi
-        #     coeffs_bi[-1, -1] = 0.0
+        else:
+            ptr = data["ptr"]
+            batch_size = ptr.shape[0] - 1
 
-        #     total_charge_bi = data[AtomicDataDict.TOTAL_CHARGE_KEY][bi]  # (1, 1)
-        #     chi_bi = chi[first_atom_index : first_atom_index + num_atoms_bi] 
-        #     rhs_bi = torch.cat([-chi_bi.squeeze(1), total_charge_bi])
+            ele = torch.zeros(batch_size, device=device)
+            charges = []
+            for bi in range(batch_size):
+                cell_bi = data[AtomicDataDict.CELL_KEY][bi]
+                pos_bi = data[AtomicDataDict.POSITIONS_KEY][ptr[bi] : ptr[bi + 1]]
+                sigmas_bi = sigmas[ptr[bi] : ptr[bi + 1]]
+                ewald_bi = EwaldAuxiliary(
+                    cell=cell_bi,
+                    pos=pos_bi,
+                    sigmas=sigmas_bi,
+                    point_charge=False,
+                )
 
-        #     # solve Qeq
-        #     # for small (n, n)-matrix (n < 2048), batched DGESV is faster than usual DGESV in MAGMA
-        #     charges_and_lambda = torch.linalg.solve(
-        #         torch.unsqueeze(coeffs_bi, dim=0), torch.unsqueeze(rhs_bi, dim=0)
-        #     )
-        #     charges_bi = torch.squeeze(charges_and_lambda, dim=0)[:-1].unsqueeze(-1)  # (num_atoms_bi, 1)
-        #     charges.append(charges_bi)
+                # coefficient matrix for Qeq
+                hardness_bi = hardness[ptr[bi] : ptr[bi + 1]]
+                num_atoms_bi = ptr[bi + 1] - ptr[bi]
+                coeffs_bi = torch.ones((num_atoms_bi + 1, num_atoms_bi + 1), device=device)
+                energy_matrix_bi = ewald_bi.get_qeq_matrix(hardness_bi)
+                coeffs_bi[:num_atoms_bi, :num_atoms_bi] = energy_matrix_bi
+                coeffs_bi[-1, -1] = 0.0
 
-        #     # minimized electrostatic energy
-        #     e_qeq_bi = 0.5 * torch.sum(
-        #         energy_matrix_bi * charges_bi[:, None] * charges_bi[None, :]
-        #     )
-        #     e_qeq_bi += torch.sum(charges_bi * chi_bi)
-        #     ele[bi] = e_qeq_bi / self.scale
+                total_charge_bi = torch.Tensor([[data[TOTAL_CHARGE_KEY][bi]]]).to(device)  # (1, 1)
+                chi_bi = chi[ptr[bi] : ptr[bi + 1]]
+                rhs_bi = torch.cat([-chi_bi, total_charge_bi])
 
-        #     first_atom_index = first_atom_index + num_atoms_bi
+                # solve Qeq
+                # for small (n, n)-matrix (n < 2048), batched DGESV is faster than usual DGESV in MAGMA
+                charges_and_lambda = torch.linalg.solve(
+                    torch.unsqueeze(coeffs_bi, dim=0), torch.unsqueeze(rhs_bi, dim=0)
+                )
+                charges_bi = torch.squeeze(charges_and_lambda, dim=0)[:-1]  # (num_atoms_bi, 1)
+                charges.append(charges_bi)
+
+                # minimized electrostatic energy
+                e_qeq_bi = 0.5 * torch.sum(
+                    energy_matrix_bi * charges_bi[:, None] * charges_bi[None, :]
+                )
+                e_qeq_bi += torch.sum(charges_bi * chi_bi)
+                ele[bi] = e_qeq_bi / self.scale
+
         data[AtomicDataDict.CHARGES_KEY] = charges.reshape(batch_size * natoms, -1)  # (num_atoms, 1)
         data[self.out_field] = torch.unsqueeze(ele, dim=1)  # (batch_size, 1)
-        # print('charges = ', data[AtomicDataDict.CHARGES_KEY])
-        
-        # print('ewald = ', data[self.out_field])
         return data
 
 

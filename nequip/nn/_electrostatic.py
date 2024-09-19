@@ -54,9 +54,7 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
 
         # sigma: species_index (0-indexed) -> covalent radius
         covalent_radii_for_atoms = covalent_radii[atomic_numbers]
-        my_covalent_radii = [x for _, x in sorted(zip(atomic_numbers, covalent_radii_for_atoms))]
-        self.sigma = torch.from_numpy(np.array(my_covalent_radii))
-
+        self.sigma = torch.tensor([x for _, x in sorted(zip(atomic_numbers, covalent_radii_for_atoms))])
         if len(atomic_numbers) == 1:
             self.sigma = torch.unsqueeze(self.sigma, 0)
 
@@ -87,10 +85,8 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
         gammas = torch.sqrt(
             sigmas[pair_indices[0]] ** 2 + sigmas[pair_indices[1]] ** 2
         )
-
         coeffs[pair_indices[0], pair_indices[1]] += (
-            #it has two arrays with same elements
-            (self.scaled_coulomb_factor * torch.erf(dists / math.sqrt(2.0) / gammas[0]) / dists)
+            self.scaled_coulomb_factor * torch.erf(dists / math.sqrt(2.0) / gammas.flatten()) / dists
         )
         
         coeffs += torch.transpose(coeffs, 0, 1).clone()
