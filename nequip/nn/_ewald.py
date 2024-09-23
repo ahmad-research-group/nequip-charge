@@ -7,7 +7,6 @@ from ase.data import covalent_radii
 from e3nn.o3 import Irreps, Linear
 from scipy import constants
 
-from nequip.data._keys import CHARGES_KEY, ELECTROSTATIC_ENERGY_KEY, TOTAL_CHARGE_KEY
 from nequip.data import AtomicDataDict
 from nequip.nn import GraphModuleMixin
 
@@ -21,7 +20,7 @@ class Ewald(GraphModuleMixin, torch.nn.Module):
     def __init__(
         self,
         atomic_numbers: List[int],  # automatically passed from shared_params 
-        out_field: str = ELECTROSTATIC_ENERGY_KEY,
+        out_field: str = AtomicDataDict.ELECTROSTATIC_ENERGY_KEY,
         irreps_in=None,
         scale: float = 1.0,  # std of dataset, physical unit
     ):
@@ -34,7 +33,7 @@ class Ewald(GraphModuleMixin, torch.nn.Module):
         irreps_out = {self.out_field: Irreps("1x0e")}
         self._init_irreps(
             irreps_in=irreps_in,
-            required_irreps_in=[AtomicDataDict.POSITIONS_KEY, CHARGES_KEY],
+            required_irreps_in=[AtomicDataDict.POSITIONS_KEY, AtomicDataDict.CHARGES_KEY],
             irreps_out=irreps_out,
         )
 
@@ -47,7 +46,7 @@ class Ewald(GraphModuleMixin, torch.nn.Module):
         device = data[AtomicDataDict.POSITIONS_KEY].device
         species_idx = data[AtomicDataDict.ATOM_TYPE_KEY]
         sigmas = self.sigma[species_idx].to(device)
-        charges = data[CHARGES_KEY]  # (num_atoms, 1)
+        charges = data[AtomicDataDict.CHARGES_KEY]  # (num_atoms, 1)
 
         ptr = data["ptr"]
         batch_size = ptr.shape[0] - 1
@@ -80,7 +79,7 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
     def __init__(
         self,
         atomic_numbers: List[int],  # automatically passed from shared_params
-        out_field: str = ELECTROSTATIC_ENERGY_KEY,
+        out_field: str = AtomicDataDict.ELECTROSTATIC_ENERGY_KEY,
         irreps_in=None,
         scale: float = 1.0,  # std of dataset, physical unit
     ):
@@ -91,7 +90,7 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
         self.out_field = out_field
         irreps_out = {
             self.out_field: Irreps("1x0e"),
-            CHARGES_KEY: Irreps("1x0e"),
+            AtomicDataDict.CHARGES_KEY: Irreps("1x0e"),
         }
         self._init_irreps(
             irreps_in=irreps_in,
@@ -138,7 +137,7 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
                                                                     ])
             coeffs[:, :-1, :-1] = energy_matrices
             coeffs[:, -1, -1] = 0.0
-            rhs = torch.cat((-chi.view(batch_size,-1), data[TOTAL_CHARGE_KEY]), dim=-1)
+            rhs = torch.cat((-chi.view(batch_size,-1), data[AtomicDataDict.TOTAL_CHARGE_KEY]), dim=-1)
             # Solve Qeq for all batches
             charges_and_lambda = torch.linalg.solve(coeffs, rhs)
             # Extract charges and electrostatic energy
@@ -149,7 +148,7 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
             ele = torch.stack(ele)
 
         else:
-            ptr = data["ptr"]
+            ptr = data[AtomicDataDict.BATCH_KEY]
             batch_size = ptr.shape[0] - 1
 
             ele = torch.zeros(batch_size, device=device)
@@ -173,7 +172,7 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
                 coeffs_bi[:num_atoms_bi, :num_atoms_bi] = energy_matrix_bi
                 coeffs_bi[-1, -1] = 0.0
 
-                total_charge_bi = torch.Tensor([[data[TOTAL_CHARGE_KEY][bi]]]).to(device)  # (1, 1)
+                total_charge_bi = torch.Tensor([[data[AtomicDataDict.TOTAL_CHARGE_KEY][bi]]]).to(device)  # (1, 1)
                 chi_bi = chi[ptr[bi] : ptr[bi + 1]]
                 rhs_bi = torch.cat([-chi_bi, total_charge_bi])
 
