@@ -146,11 +146,11 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
                         for energy_matrix, charges_bi, chi_bi in zip(energy_matrices, charges, chi) ]
             ele = [e_qeq_bi / self.scale for e_qeq_bi in ele]
             ele = torch.stack(ele)
+            data[AtomicDataDict.CHARGES_KEY] = charges.reshape(batch_size * natoms, -1)
 
         else:
-            ptr = data[AtomicDataDict.BATCH_KEY]
+            ptr = data[AtomicDataDict.BATCH_PTR_KEY]
             batch_size = ptr.shape[0] - 1
-
             ele = torch.zeros(batch_size, device=device)
             charges = []
             for bi in range(batch_size):
@@ -191,7 +191,7 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
                 e_qeq_bi += torch.sum(charges_bi * chi_bi)
                 ele[bi] = e_qeq_bi / self.scale
 
-        data[AtomicDataDict.CHARGES_KEY] = charges.reshape(batch_size * natoms, -1)  # (num_atoms, 1)
+        data[AtomicDataDict.CHARGES_KEY] = torch.cat(charges) # (num_atoms, 1)
         data[self.out_field] = torch.unsqueeze(ele, dim=1)  # (batch_size, 1)
         return data
 

@@ -8,7 +8,6 @@ from e3nn.o3 import Irreps, Linear
 from torch_scatter import scatter
 from nequip.data import AtomicDataDict
 from nequip.nn import GraphModuleMixin
-from nequip.data._keys import CHARGES_KEY, ELECTROSTATIC_ENERGY_KEY, TOTAL_CHARGE_KEY
 
 """
 Coulomb constant
@@ -25,7 +24,7 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
     def __init__(
         self,
         atomic_numbers: List[int],  # automatically passed from shared_params
-        out_field: str = ELECTROSTATIC_ENERGY_KEY,
+        out_field: str = AtomicDataDict.ELECTROSTATIC_ENERGY_KEY,
         irreps_in=None,
         pbc: bool = False,
         energy_scale: float = 1.0,  # std of energy in dataset, eV unit
@@ -44,7 +43,7 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
         self.out_field = out_field
         irreps_out = {
             self.out_field: Irreps("1x0e"),
-            CHARGES_KEY: Irreps("1x0e"),
+            AtomicDataDict.CHARGES_KEY: Irreps("1x0e"),
         }
         self._init_irreps(
             irreps_in=irreps_in,
@@ -73,7 +72,7 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
 
         # batch-wise pair indices of atoms
         pos = data[AtomicDataDict.POSITIONS_KEY]  # (num_atoms, 3)
-        pair_indices, pair_batch_indices = get_pair_indices_within_batch(data["ptr"], pos)
+        pair_indices, pair_batch_indices = get_pair_indices_within_batch(data[AtomicDataDict.BATCH_PTR_KEY], pos)
         dists = torch.pairwise_distance(
             pos[pair_indices[0]], pos[pair_indices[1]], eps=1e-6, keepdim=False
         )
@@ -92,7 +91,7 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
         coeffs += torch.transpose(coeffs, 0, 1).clone()
         coeffs += torch.diag(hardness + self.scaled_coulomb_factor / (math.sqrt(math.pi) * sigmas))
 
-        ptr = data["ptr"]
+        ptr = data[AtomicDataDict.BATCH_PTR_KEY]
         batch_size = ptr.shape[0] - 1
         charges = []
         # TODO: avoid for-loop
@@ -104,7 +103,7 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
             ]
             coeffs_bi[-1, -1] = 0.0
 
-            total_charge_bi = torch.Tensor([[data[TOTAL_CHARGE_KEY][bi]]]).to(device)  # (1, 1)
+            total_charge_bi = torch.Tensor([[data[AtomicDataDict.TOTAL_CHARGE_KEY][bi]]]).to(device)  # (1, 1)
             rhs_bi = torch.cat([-chi[ptr[bi] : ptr[bi + 1]], total_charge_bi])
 
             # solve Qeq
@@ -116,7 +115,7 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
             charges.append(charges_bi)
 
         charges = torch.cat(charges)  # (num_atoms, 1)
-        data[CHARGES_KEY] = charges
+        data[AtomicDataDict.CHARGES_KEY] = charges
 
         # energy expression
         e_qeq = self._calc_qeq_energy(

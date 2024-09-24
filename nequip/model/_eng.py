@@ -21,7 +21,6 @@ from nequip.nn.embedding import (
 from . import builder_utils
 from nequip.nn._ewald import EwaldQeq
 from nequip.nn._electrostatic import SumEnergies, Qeq
-from nequip.data._keys import CHARGES_KEY, ELECTROSTATIC_ENERGY_KEY,TOTAL_CHARGE_KEY
 
 def SimpleIrrepsConfig(config, prefix: Optional[str] = None):
     """Builder that pre-processes options to allow "simple" configuration of irreps."""
@@ -169,7 +168,7 @@ def EnergyModel(
     layers["sum_energy_terms"] = (
             SumEnergies,
             dict(
-                input_fields=[AtomicDataDict.TOTAL_ENERGY_KEY, ELECTROSTATIC_ENERGY_KEY],
+                input_fields=[AtomicDataDict.TOTAL_ENERGY_KEY, AtomicDataDict.ELECTROSTATIC_ENERGY_KEY],
             ),
         )
 
