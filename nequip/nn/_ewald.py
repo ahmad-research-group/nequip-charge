@@ -190,8 +190,8 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
                 )
                 e_qeq_bi += torch.sum(charges_bi * chi_bi)
                 ele[bi] = e_qeq_bi / self.scale
+            data[AtomicDataDict.CHARGES_KEY] = torch.cat(charges) # (num_atoms, 1)
 
-        data[AtomicDataDict.CHARGES_KEY] = torch.cat(charges) # (num_atoms, 1)
         data[self.out_field] = torch.unsqueeze(ele, dim=1)  # (batch_size, 1)
         return data
 
