@@ -150,13 +150,13 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
 
         else:
             ptr = data[AtomicDataDict.BATCH_PTR_KEY]
-            batch_size = ptr.shape[0] - 1
+            batch_size = int(ptr.shape[0] - 1)
             ele = torch.zeros(batch_size, device=device)
             charges = []
             for bi in range(batch_size):
                 cell_bi = data[AtomicDataDict.CELL_KEY][bi]
                 pos_bi = data[AtomicDataDict.POSITIONS_KEY][ptr[bi] : ptr[bi + 1]]
-                sigmas_bi = sigmas[ptr[bi] : ptr[bi + 1]]
+                sigmas_bi = sigmas[int(ptr[bi]) : int(ptr[bi + 1])]
                 ewald_bi = EwaldAuxiliary(
                     cell=cell_bi,
                     pos=pos_bi,
@@ -165,16 +165,17 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
                 )
 
                 # coefficient matrix for Qeq
-                hardness_bi = hardness[ptr[bi] : ptr[bi + 1]]
-                num_atoms_bi = ptr[bi + 1] - ptr[bi]
+                hardness_bi = hardness[int(ptr[bi]) : int(ptr[bi + 1])]
+                num_atoms_bi = int(ptr[bi + 1] - ptr[bi])
                 coeffs_bi = torch.ones((num_atoms_bi + 1, num_atoms_bi + 1), device=device)
                 energy_matrix_bi = ewald_bi.get_qeq_matrix(hardness_bi)
                 coeffs_bi[:num_atoms_bi, :num_atoms_bi] = energy_matrix_bi
                 coeffs_bi[-1, -1] = 0.0
-
-                total_charge_bi = torch.Tensor([[data[AtomicDataDict.TOTAL_CHARGE_KEY][bi]]]).to(device)  # (1, 1)
-                chi_bi = chi[ptr[bi] : ptr[bi + 1]]
-                rhs_bi = torch.cat([-chi_bi, total_charge_bi])
+                
+                
+                total_charge_bi = data[AtomicDataDict.TOTAL_CHARGE_KEY][bi]  # (1, 1)
+                chi_bi = chi[int(ptr[bi]) : int(ptr[bi + 1])]
+                rhs_bi = torch.cat([-chi_bi.squeeze(-1), total_charge_bi])
 
                 # solve Qeq
                 # for small (n, n)-matrix (n < 2048), batched DGESV is faster than usual DGESV in MAGMA
@@ -190,7 +191,7 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
                 )
                 e_qeq_bi += torch.sum(charges_bi * chi_bi)
                 ele[bi] = e_qeq_bi / self.scale
-            data[AtomicDataDict.CHARGES_KEY] = torch.cat(charges) # (num_atoms, 1)
+            data[AtomicDataDict.CHARGES_KEY] = torch.cat(charges).unsqueeze(-1) # (num_atoms, 1)
 
         data[self.out_field] = torch.unsqueeze(ele, dim=1)  # (batch_size, 1)
         return data

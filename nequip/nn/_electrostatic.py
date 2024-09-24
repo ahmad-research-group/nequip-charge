@@ -96,15 +96,15 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
         charges = []
         # TODO: avoid for-loop
         for bi in range(batch_size):
-            num_atoms_bi = ptr[bi + 1] - ptr[bi]
+            num_atoms_bi = int(ptr[bi + 1]) - int(ptr[bi])
             coeffs_bi = torch.ones((num_atoms_bi + 1, num_atoms_bi + 1), device=device)
             coeffs_bi[:num_atoms_bi, :num_atoms_bi] = coeffs[
                 ptr[bi] : ptr[bi + 1], ptr[bi] : ptr[bi + 1]
             ]
             coeffs_bi[-1, -1] = 0.0
 
-            total_charge_bi = torch.Tensor([[data[AtomicDataDict.TOTAL_CHARGE_KEY][bi]]]).to(device)  # (1, 1)
-            rhs_bi = torch.cat([-chi[ptr[bi] : ptr[bi + 1]], total_charge_bi])
+            total_charge_bi = data[AtomicDataDict.TOTAL_CHARGE_KEY][bi]  # (1, 1)
+            rhs_bi = torch.cat([-chi[ptr[bi] : ptr[bi + 1]].squeeze(-1), total_charge_bi])
 
             # solve Qeq
             # for small (n, n)-matrix (n < 2048), batched DGESV is faster than usual DGESV in MAGMA
@@ -114,7 +114,7 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
             charges_bi = torch.squeeze(charges_and_lambda, dim=0)[:-1]  # (num_atoms_bi, 1)
             charges.append(charges_bi)
 
-        charges = torch.cat(charges)  # (num_atoms, 1)
+        charges = torch.cat(charges).unsqueeze(-1)  # (num_atoms, 1)
         data[AtomicDataDict.CHARGES_KEY] = charges
 
         # energy expression
