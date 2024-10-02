@@ -43,6 +43,7 @@ _DEFAULT_NODE_FIELDS: Set[str] = {
     AtomicDataDict.FORCE_KEY,
     AtomicDataDict.PER_ATOM_ENERGY_KEY,
     AtomicDataDict.BATCH_KEY,
+    AtomicDataDict.CHARGES_KEY,
 }
 _DEFAULT_EDGE_FIELDS: Set[str] = {
     AtomicDataDict.EDGE_CELL_SHIFT_KEY,
@@ -62,6 +63,7 @@ _DEFAULT_GRAPH_FIELDS: Set[str] = {
     AtomicDataDict.PBC_KEY,
     AtomicDataDict.CELL_KEY,
     AtomicDataDict.BATCH_PTR_KEY,
+    AtomicDataDict.ELECTROSTATIC_ENERGY_KEY
 }
 _DEFAULT_CARTESIAN_TENSOR_FIELDS: Dict[str, str] = {
     AtomicDataDict.STRESS_KEY: "ij=ji",
@@ -438,13 +440,11 @@ class AtomicData(Data):
 
         km = {
             "forces": AtomicDataDict.FORCE_KEY,
-            "initial_charges": AtomicDataDict.CHARGES_KEY,
             "energy": AtomicDataDict.TOTAL_ENERGY_KEY,
         }
         km.update(key_mapping)
         key_mapping = km
 
-        include_keys.append("initial_charges")
         add_fields = {}
 
         # Get info from atoms.arrays; lowest priority. copy first
