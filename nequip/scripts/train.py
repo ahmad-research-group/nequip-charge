@@ -16,7 +16,7 @@ import torch
 
 from nequip.model import model_from_config
 from nequip.utils import Config
-from nequip.data import dataset_from_config
+from nequip.data import dataset_from_config, AtomicDataDict
 from nequip.utils import load_file
 from nequip.utils.config import _GLOBAL_ALL_ASKED_FOR_KEYS
 from nequip.utils.test import assert_AtomicData_equivariant
@@ -217,6 +217,95 @@ def fresh_start(config):
 
     # = Train/test split =
     trainer.set_dataset(dataset, validation_dataset)
+
+    # = Determine training type =
+    train_on = config.loss_coeffs
+    train_on = [train_on] if isinstance(train_on, str) else train_on
+    train_on = set(train_on)
+    force_training = "forces" in train_on
+    charge_training = "charges" in train_on
+    logging.debug(f"Force training mode: {force_training}")
+    logging.debug(f"Charge training mode: {charge_training}")
+    del train_on
+
+      # = Get statistics of training dataset =
+    stats_fields = [
+        AtomicDataDict.TOTAL_ENERGY_KEY,
+        AtomicDataDict.ATOM_TYPE_KEY,
+    ]
+    stats_modes = ["mean_std", "count"]
+    if force_training:
+        stats_fields.append(AtomicDataDict.FORCE_KEY)
+        stats_modes.append("rms")
+    if charge_training:
+        stats_fields.append(AtomicDataDict.CHARGES_KEY)
+        stats_modes.append("rms")
+    stats = trainer.dataset_train.statistics(
+        fields=stats_fields, modes=stats_modes, stride=config.dataset_statistics_stride
+    )
+    (
+        (energies_mean, energies_std),
+        (allowed_species, Z_count),
+    ) = stats[:2]
+    if force_training:
+        # Scale by the force std instead
+        force_rms = stats[2][0]
+    del stats_modes
+    del stats_fields
+
+    # config.update(dict(allowed_species=allowed_species))
+
+    # = Determine shifts, scales =
+    # This is a bit awkward, but necessary for there to be a value
+    # in the config that signals "use dataset"
+    global_shift = config.get("global_rescale_shift", "dataset_energy_mean")
+    if global_shift == "dataset_energy_mean":
+        global_shift = energies_mean
+    elif (
+        global_shift is None
+        or isinstance(global_shift, float)
+        or isinstance(global_shift, torch.Tensor)
+    ):
+        # valid values
+        pass
+    else:
+        raise ValueError(f"Invalid global shift `{global_shift}`")
+
+    global_scale = config.get(
+        "global_rescale_scale", force_rms if force_training else energies_std
+    )
+    if global_scale == "dataset_energy_std":
+        global_scale = energies_std
+    elif global_scale == "dataset_forces_rms":
+        if not force_training:
+            raise ValueError(
+                "Cannot have global_scale = 'dataset_forces_rms' without force training"
+            )
+        global_scale = force_rms
+    elif (
+        global_scale is None
+        or isinstance(global_scale, float)
+        or isinstance(global_scale, torch.Tensor)
+    ):
+        # valid values
+        pass
+    else:
+        raise ValueError(f"Invalid global scale `{global_scale}`")
+
+    RESCALE_THRESHOLD = 1e-6
+    if isinstance(global_scale, float) and global_scale < RESCALE_THRESHOLD:
+        raise ValueError(
+            f"Global energy scaling was very low: {global_scale}. If dataset values were used, does the dataset contain insufficient variation? Maybe try disabling global scaling with global_scale=None."
+        )
+        # TODO: offer option to disable rescaling?
+
+    logging.debug(
+        f"Initially outputs are scaled by: {global_scale}, eneriges are shifted by {global_shift}."
+    )
+
+    # dirty hack to remember global_scale i.e. std of energy
+    # Use it in electrostatic correction
+    config["_global_scale"]: float = global_scale.item()
 
     # = Build model =
     final_model = model_from_config(
