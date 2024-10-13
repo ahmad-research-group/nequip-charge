@@ -100,6 +100,12 @@ def EnergyModel(
     )
 
     energy_scale = config.get("_global_scale", 1.0)
+    use_ewald_scaling = config.get("use_ewald_scaling", False)
+
+    if use_ewald_scaling: # use ewald scaling
+        energy_scale = energy_scale
+    else: # do not use ewald scaling
+        energy_scale = 1.0
     num_layers = config.get("num_layers", 3)
     num_layers_charge = config.get("num_layers_charge", 3)
     pbc = config.get("pbc", False)
