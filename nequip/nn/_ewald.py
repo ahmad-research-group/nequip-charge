@@ -12,6 +12,8 @@ from nequip.nn import GraphModuleMixin
 
 from nequip.utils.batch_ops import bincount
 
+from mendeleev import element
+
 class Ewald(GraphModuleMixin, torch.nn.Module):
     """
     Layer to calculate electrostatic energy via Ewald summation
@@ -110,12 +112,19 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
         )
         hardness_params = torch.ones(len(atomic_numbers)) #randn?
         self.to_hardness = torch.nn.Parameter(data=hardness_params)
+        
+        self.sigmoid = torch.nn.Sigmoid()
+        # get true chi for all atoms
+        self.chi_pauling = torch.tensor([ele.en_pauling for ele in  element(atomic_numbers)])
+        print("pauling from mendeleev",self.chi_pauling)
 
     def forward(self, data: AtomicDataDict.Type) -> AtomicDataDict.Type:
         device = data[AtomicDataDict.POSITIONS_KEY].device
         species_idx = data[AtomicDataDict.ATOM_TYPE_KEY]
         sigmas = torch.squeeze(self.sigma[species_idx].to(device), dim =1)
-        chi = self.to_chi(data[AtomicDataDict.NODE_FEATURES_KEY])  # (num_atoms, 1)
+        pred_chi = self.to_chi(data[AtomicDataDict.NODE_FEATURES_KEY])
+        chis = torch.squeeze(self.chi_pauling[species_idx].to(device), dim =1)
+        chi = chis * ( 1   + 0.2 *   2*(self.sigmoid(pred_chi.squeeze(-1))  - 0.5)  ) # (num_atoms, 1)
         # square here to restrit hardness to be positive!
         hardness = torch.square(self.to_hardness[species_idx])  # (num_atoms, )
 
