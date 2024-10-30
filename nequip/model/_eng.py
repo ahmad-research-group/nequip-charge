@@ -178,11 +178,12 @@ def EnergyModel(
             ),
         )
 
-    # irreps_in = {
-    #     TOTAL_CHARGE_KEY: Irreps("1x0e")
-    # }
+    irreps_in = {
+        AtomicDataDict.TOTAL_CHARGE_KEY: Irreps("1x0e")
+    }
 
     return SequentialGraphNetwork.from_parameters(
+        irreps_in=irreps_in,
         shared_params=config,
         layers=layers,
     )
