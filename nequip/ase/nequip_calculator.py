@@ -106,7 +106,7 @@ class NequIPCalculator(Calculator):
         Calculator.calculate(self, atoms)
 
         # prepare data
-        data = AtomicData.from_ase(atoms=atoms, r_max=self.r_max)
+        data = AtomicData.from_ase(atoms=atoms, r_max=self.r_max, total_charge = atoms.info['total_charge'])
         for k in AtomicDataDict.ALL_ENERGY_KEYS:
             if k in data:
                 del data[k]
