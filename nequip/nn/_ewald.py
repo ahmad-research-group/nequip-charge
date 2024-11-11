@@ -117,9 +117,10 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
         species_idx = data[AtomicDataDict.ATOM_TYPE_KEY]
         sigmas = torch.squeeze(self.sigma[species_idx].to(device), dim =1)
         chi = self.to_chi(data[AtomicDataDict.NODE_FEATURES_KEY])  # (num_atoms, 1)
+        data[AtomicDataDict.ELECTRONEGATIVITY_KEY] = chi
         # square here to restrit hardness to be positive!
         hardness = torch.square(self.to_hardness[species_idx])  # (num_atoms, )
-
+        data[AtomicDataDict.HARDNESS_KEY] = hardness
         # if every data points has equal number of atoms
         data = AtomicDataDict.with_batch(data)
         Natoms = bincount(data[AtomicDataDict.BATCH_KEY]) #(batch size)

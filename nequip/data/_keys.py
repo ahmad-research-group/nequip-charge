@@ -27,6 +27,8 @@ ATOMIC_NUMBERS_KEY: Final[str] = "atomic_numbers"
 # [n_atom, 1] long tensor
 ATOM_TYPE_KEY: Final[str] = "atom_types"
 CHARGES_KEY: Final[str] = "initial_charges"
+HARDNESS_KEY: Final[str] = "hardness"
+ELECTRONEGATIVITY_KEY: Final[str] = "electronegativity"
 ELECTROSTATIC_ENERGY_KEY: Final[str] = "electrostatic_energy"
 TOTAL_CHARGE_KEY: Final[str] = "total_charge"
 
@@ -38,6 +40,8 @@ BASIC_STRUCTURE_KEYS: Final[List[str]] = [
     PBC_KEY,
     ATOM_TYPE_KEY,
     CHARGES_KEY,
+    ELECTRONEGATIVITY_KEY,
+    HARDNESS_KEY,
     ATOMIC_NUMBERS_KEY,
     TOTAL_CHARGE_KEY
 ]

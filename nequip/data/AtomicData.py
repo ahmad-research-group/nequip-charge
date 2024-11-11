@@ -44,6 +44,8 @@ _DEFAULT_NODE_FIELDS: Set[str] = {
     AtomicDataDict.PER_ATOM_ENERGY_KEY,
     AtomicDataDict.BATCH_KEY,
     AtomicDataDict.CHARGES_KEY,
+    AtomicDataDict.ELECTRONEGATIVITY_KEY,
+    AtomicDataDict.HARDNESS_KEY
 }
 _DEFAULT_EDGE_FIELDS: Set[str] = {
     AtomicDataDict.EDGE_CELL_SHIFT_KEY,

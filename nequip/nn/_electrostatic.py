@@ -68,7 +68,8 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
         chi = self.to_chi(data[AtomicDataDict.NODE_FEATURES_KEY])  # (num_atoms, 1)
         species_idx = data[AtomicDataDict.ATOM_TYPE_KEY]
         # square here to restrit hardness to be positive!
-        hardness = torch.square(self.to_hardness[species_idx])  # (num_atoms, )
+        #hardness = torch.square(self.to_hardness[species_idx])  # (num_atoms, )
+        data[AtomicDataDict.HARDNESS_KEY]= torch.square(self.to_hardness[species_idx])  # (num_atoms, )
 
         # batch-wise pair indices of atoms
         pos = data[AtomicDataDict.POSITIONS_KEY]  # (num_atoms, 3)
@@ -89,7 +90,7 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
         )
         
         coeffs += torch.transpose(coeffs, 0, 1).clone()
-        coeffs += torch.diag(hardness + self.scaled_coulomb_factor / (math.sqrt(math.pi) * sigmas))
+        coeffs += torch.diag(data[AtomicDataDict.HARDNESS_KEY] + self.scaled_coulomb_factor / (math.sqrt(math.pi) * sigmas))
 
         ptr = data[AtomicDataDict.BATCH_PTR_KEY]
         batch_size = ptr.shape[0] - 1
