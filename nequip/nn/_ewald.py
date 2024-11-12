@@ -85,8 +85,8 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
     ):
         super().__init__()
 
-        #self.scale = scale
-        self.scale = torch.nn.Parameter(torch.tensor(scale, dtype=torch.float32))
+        self.scale = scale
+        #self.scale = torch.nn.Parameter(torch.tensor(scale, dtype=torch.float32))
         print('ewald scaling factor = ', self.scale)
         self.out_field = out_field
         irreps_out = {
