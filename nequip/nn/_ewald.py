@@ -141,7 +141,7 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
             coeffs[:, -1, -1] = 0.0
             rhs = torch.cat((-chi.view(batch_size,-1), data[AtomicDataDict.TOTAL_CHARGE_KEY]), dim=-1)
             # Solve Qeq for all batches
-            charges_and_lambda = torch.linalg.solve(coeffs, rhs)
+            charges_and_lambda = torch.linalg.solve(coeffs.to(rhs.dtype), rhs)
             # Extract charges and electrostatic energy
             charges = charges_and_lambda[:, :-1]
             ele = [  0.5 * torch.sum(energy_matrix * charges_bi[:, None] * charges_bi[None, :]) + torch.sum(charges_bi * chi_bi)
@@ -172,7 +172,7 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
                 coeffs_bi = torch.ones((num_atoms_bi + 1, num_atoms_bi + 1), device=device)
                 energy_matrix_bi = ewald_bi.get_qeq_matrix(hardness_bi)
                 coeffs_bi[:num_atoms_bi, :num_atoms_bi] = energy_matrix_bi
-                coeffs_bi[-1, -1] = 0.0
+                coeffs_bi[-1, -1] = torch.tensor(0.0, dtype=torch.float)
                 
                 
                 total_charge_bi = data[AtomicDataDict.TOTAL_CHARGE_KEY][bi]  # (1, 1)
@@ -182,7 +182,7 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
                 # solve Qeq
                 # for small (n, n)-matrix (n < 2048), batched DGESV is faster than usual DGESV in MAGMA
                 charges_and_lambda = torch.linalg.solve(
-                    torch.unsqueeze(coeffs_bi, dim=0), torch.unsqueeze(rhs_bi, dim=0)
+                    torch.unsqueeze(coeffs_bi.to(rhs_bi.dtype), dim=0), torch.unsqueeze(rhs_bi, dim=0)
                 )
                 charges_bi = torch.squeeze(charges_and_lambda, dim=0)[:-1]  # (num_atoms_bi, 1)
                 charges.append(charges_bi)
@@ -303,7 +303,7 @@ class EwaldAuxiliary:
         shifts = get_shifts_within_cutoff(self.cell, self.cutoff_real)  # (num_shifts, 3)
         # disps_ij[i, j, :] is displacement vector r_{ij}
         disps_ij = self.pos[None, :, :] - self.pos[:, None, :]
-        disps = disps_ij[None, :, :, :] + torch.matmul(shifts, self.cell)[:, None, None, :]
+        disps = disps_ij[None, :, :, :] + torch.matmul(shifts.to(self.cell.dtype), self.cell)[:, None, None, :]
         distances_all = torch.linalg.norm(disps, dim=-1)  # (num_shifts, num_atoms, num_atoms)
 
         # retrieve pairs whose length are shorter than cutoff
@@ -329,7 +329,7 @@ class EwaldAuxiliary:
         # calculate reciprocal points
         recip = get_reciprocal_vectors(self.cell)
         shifts = get_shifts_within_cutoff(recip, self.cutoff_recip)  # (num_shifts, 3)
-        ks_all = torch.matmul(shifts, recip)
+        ks_all = torch.matmul(shifts.to(recip), recip)
         length_all = torch.linalg.norm(ks_all, dim=-1)  # (num_shifts, )
 
         # retrieve reciprocal points whose length are shorter than cutoff
