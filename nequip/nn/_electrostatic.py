@@ -110,7 +110,7 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
             # solve Qeq
             # for small (n, n)-matrix (n < 2048), batched DGESV is faster than usual DGESV in MAGMA
             charges_and_lambda = torch.linalg.solve(
-                torch.unsqueeze(coeffs_bi, dim=0), torch.unsqueeze(rhs_bi, dim=0)
+                torch.unsqueeze(coeffs_bi.to(rhs_bi.dtype), dim=0), torch.unsqueeze(rhs_bi, dim=0)
             )
             charges_bi = torch.squeeze(charges_and_lambda, dim=0)[:-1]  # (num_atoms_bi, 1)
             charges.append(charges_bi)
