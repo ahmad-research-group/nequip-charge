@@ -54,8 +54,8 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
         # sigma: species_index (0-indexed) -> covalent radius
         covalent_radii_for_atoms = covalent_radii[atomic_numbers]
         self.sigma = torch.tensor([x for _, x in sorted(zip(atomic_numbers, covalent_radii_for_atoms))])
-        if len(atomic_numbers) == 1:
-            self.sigma = torch.unsqueeze(self.sigma, 0)
+        # if len(atomic_numbers) == 1:
+        #     self.sigma = torch.unsqueeze(self.sigma, 0)
 
         self.to_chi = Linear(
             irreps_in=irreps_in[AtomicDataDict.NODE_FEATURES_KEY],
