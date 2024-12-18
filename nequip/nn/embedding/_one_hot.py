@@ -77,9 +77,9 @@ class ChargeEncoding(GraphModuleMixin, torch.nn.Module):
             ]
 
         #charge categories
-        self.filter = torch.linspace(qmin, qmax, num_categories)
+        self.filter = torch.linspace(qmin, qmax, )
         self.var = (qmax - qmin) / num_categories
-
+        self.num_categories = num_categories
         self._init_irreps(irreps_in=irreps_in, irreps_out=irreps_out)
 
     def forward(self, data: AtomicDataDict.Type) -> AtomicDataDict.Type:
@@ -92,7 +92,10 @@ class ChargeEncoding(GraphModuleMixin, torch.nn.Module):
         #     type_numbers, num_classes=self.num_types
         # ).to(device=type_numbers.device, dtype=data[AtomicDataDict.POSITIONS_KEY].dtype)
         #one_hot_with_charge = torch.cat((data[AtomicDataDict.NODE_ATTRS_KEY], data[AtomicDataDict.CHARGES_KEY]), dim=1)
-        one_hot_with_charge = torch.cat((data[AtomicDataDict.NODE_ATTRS_KEY], charge_vector), dim=1)
+        if self.num_categories>1:
+            one_hot_with_charge = torch.cat((data[AtomicDataDict.NODE_ATTRS_KEY], charge_vector), dim=1)
+        else:
+            one_hot_with_charge = torch.cat((data[AtomicDataDict.NODE_ATTRS_KEY], data[AtomicDataDict.CHARGES_KEY]), dim=1)
 #        print('one_hot_with_charge shape = ', one_hot_with_charge.shape)
         data[AtomicDataDict.NODE_ATTRS_KEY] = one_hot_with_charge
         if self.set_features:
