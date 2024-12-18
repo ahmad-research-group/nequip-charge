@@ -77,7 +77,7 @@ class ChargeEncoding(GraphModuleMixin, torch.nn.Module):
             ]
 
         #charge categories
-        self.filter = torch.linspace(qmin, qmax, )
+        self.filter = torch.linspace(qmin, qmax, num_categories)
         self.var = (qmax - qmin) / num_categories
         self.num_categories = num_categories
         self._init_irreps(irreps_in=irreps_in, irreps_out=irreps_out)
