@@ -70,6 +70,7 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
         # square here to restrit hardness to be positive!
         #hardness = torch.square(self.to_hardness[species_idx])  # (num_atoms, )
         data[AtomicDataDict.HARDNESS_KEY]= torch.square(self.to_hardness[species_idx])  # (num_atoms, )
+        data = AtomicDataDict.with_batch(data)
 
         # batch-wise pair indices of atoms
         pos = data[AtomicDataDict.POSITIONS_KEY]  # (num_atoms, 3)
