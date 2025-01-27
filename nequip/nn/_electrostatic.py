@@ -76,7 +76,7 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
         pos = data[AtomicDataDict.POSITIONS_KEY]  # (num_atoms, 3)
         pair_indices, pair_batch_indices = get_pair_indices_within_batch(data[AtomicDataDict.BATCH_PTR_KEY], pos)
         dists = torch.pairwise_distance(
-            pos[pair_indices[0]], pos[pair_indices[1]], eps=1e-6, keepdim=False
+            pos[pair_indices[0].long()], pos[pair_indices[1].long()], eps=1e-6, keepdim=False
         )
         device = pos.device
 
@@ -84,9 +84,9 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
         coeffs = torch.zeros((num_atoms, num_atoms), device=device)
         sigmas = self.sigma[species_idx].to(device)  # (num_pairs, )
         gammas = torch.sqrt(
-            sigmas[pair_indices[0]] ** 2 + sigmas[pair_indices[1]] ** 2
+            sigmas[pair_indices[0].long()] ** 2 + sigmas[pair_indices[1].long()] ** 2
         )
-        coeffs[pair_indices[0], pair_indices[1]] += (
+        coeffs[pair_indices[0].long(), pair_indices[1].long()] += (
             self.scaled_coulomb_factor * torch.erf(dists / math.sqrt(2.0) / gammas.flatten()) / dists
         )
         
@@ -145,9 +145,9 @@ class Qeq(GraphModuleMixin, torch.nn.Module):
         e_qeq: (batch_size, 1)
         """
         e_qeq_pair = (
-            coeffs[pair_indices[0], pair_indices[1]][:, None]
-            * charges[pair_indices[0]]
-            * charges[pair_indices[1]]
+            coeffs[pair_indices[0].long(), pair_indices[1].long()][:, None]
+            * charges[pair_indices[0].long()]
+            * charges[pair_indices[1].long()]
         )
         e_qeq = scatter(e_qeq_pair, pair_batch_indices, dim=0, reduce="sum")  # (batch_size, 1)
         e_qeq_self = chi * charges + 0.5 * torch.diagonal(coeffs)[:, None] * torch.square(charges)
