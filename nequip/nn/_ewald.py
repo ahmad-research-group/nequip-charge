@@ -27,7 +27,7 @@ class Ewald(GraphModuleMixin, torch.nn.Module):
         super().__init__()
 
         self.scale = scale
-        
+        print('ewald scaling factor = ', self.scale)
 
         self.out_field = out_field
         irreps_out = {self.out_field: Irreps("1x0e")}
@@ -36,16 +36,13 @@ class Ewald(GraphModuleMixin, torch.nn.Module):
             required_irreps_in=[AtomicDataDict.POSITIONS_KEY, AtomicDataDict.CHARGES_KEY],
             irreps_out=irreps_out,
         )
-
-        # sigma: species_index (0-indexed) -> covalent radius
-        self.sigma = torch.from_numpy(np.array(covalent_radii[atomic_numbers]))
-        if len(atomic_numbers) == 1:
-            self.sigma = torch.unsqueeze(self.sigma, 0)
+        covalent_radii_for_atoms = covalent_radii[atomic_numbers]
+        self.sigma = torch.tensor([x for _, x in sorted(zip(atomic_numbers, covalent_radii_for_atoms))])
 
     def forward(self, data: AtomicDataDict.Type) -> AtomicDataDict.Type:
         device = data[AtomicDataDict.POSITIONS_KEY].device
         species_idx = data[AtomicDataDict.ATOM_TYPE_KEY]
-        sigmas = self.sigma[species_idx].to(device)
+        sigmas = torch.squeeze(self.sigma[species_idx].to(device), dim=1)
         charges = data[AtomicDataDict.CHARGES_KEY]  # (num_atoms, 1)
 
         ptr = data["ptr"]
