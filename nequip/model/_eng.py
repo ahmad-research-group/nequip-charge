@@ -127,7 +127,16 @@ def EnergyModel(
     
     layers["before_charge_prediction"] = AtomwiseLinear
     config['before_charge_prediction_irreps_out'] = repr(o3.Irreps([(config.get("num_features"), (0, 1))]))
-                                         
+
+    layers["atomic_charges"] = (
+            AtomwiseLinear,
+            dict(
+                irreps_out="1x0e",
+                field=AtomicDataDict.NODE_FEATURES_KEY,  # "node_features"
+                out_field=AtomicDataDict.CHARGES_KEY,
+            ),
+        )
+    
     if pbc:
         layers["total_energy_with_qeq"] = (
                     Ewald,
