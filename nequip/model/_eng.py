@@ -106,7 +106,8 @@ def EnergyModel(
         energy_scale = energy_scale
     else: # do not use ewald scaling
         energy_scale = 1.0
-    num_layers = config.get("num_layers", 4)
+    num_layers = config.get("num_layers", 3)
+    num_layers_charge = config.get("num_layers_charge", 3)
     pbc = config.get("pbc", False)
 
     layers = {
@@ -123,23 +124,31 @@ def EnergyModel(
     for layer_i in range(num_layers):
         layers[f"layer{layer_i}_convnet"] = ConvNetLayer
     
-    layers["atomic_charges"] = (
-            AtomwiseLinear,
-            dict(
-                irreps_out="1x0e",
-                field=AtomicDataDict.NODE_FEATURES_KEY,  # "node_features"
-                out_field=AtomicDataDict.CHARGES_KEY,
-            ),
-        )
     
+    layers["before_charge_prediction"] = AtomwiseLinear
+    config['before_charge_prediction_irreps_out'] = repr(o3.Irreps([(config.get("num_features"), (0, 1))]))
+                                         
     if pbc:
-            # for periodic system, calculate electrostatic energy via Ewald summation
-            layers["total_energy_with_ele"] = (
-                Ewald,
-                dict(scale=energy_scale),
-            )
+        layers["total_energy_with_qeq"] = (
+                    Ewald,
+                    dict(scale=energy_scale), #energy_scale
+                )
     else:
-        raise NotImplementedError
+        layers["total_energy_with_qeq"] = (
+                    Qeq,
+                    dict(scale=energy_scale), #energy_scale
+                )
+
+    #Calculate the charges using Qeq
+    layers["one_hot2"] = ChargeEncoding
+    layers["spharm_edges2"] = SphericalHarmonicEdgeAttrs
+    layers["radial_basis2"] = RadialBasisEdgeEncoding
+    layers["chemical_charge_embedding"] = AtomwiseLinear
+    config['chemical_charge_embedding_irreps_out'] = repr(o3.Irreps([(config.get("num_features"), (0, 1))]))
+
+    for layer_i in range(num_layers_charge):
+        layers[f"layer{layer_i}_charge_convnet"] = ConvNetLayer
+
     # .update also maintains insertion order
     layers.update(
         {
