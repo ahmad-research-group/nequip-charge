@@ -115,6 +115,7 @@ class EwaldQeq(GraphModuleMixin, torch.nn.Module):
     def forward(self, data: AtomicDataDict.Type) -> AtomicDataDict.Type:
         device = data[AtomicDataDict.POSITIONS_KEY].device
         species_idx = data[AtomicDataDict.ATOM_TYPE_KEY]
+        self.sigma = self.sigma.to(device) 
         sigmas = torch.squeeze(self.sigma.to(device)[species_idx], dim =1)
         chi = self.to_chi(data[AtomicDataDict.NODE_FEATURES_KEY])  # (num_atoms, 1)
         data[AtomicDataDict.ELECTRONEGATIVITY_KEY] = chi
