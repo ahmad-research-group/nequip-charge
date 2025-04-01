@@ -93,7 +93,7 @@ use_sc: true                                                                    
 
 # for extxyz file
 dataset: ase
-dataset_file_name: bta-cu-val.extxyz
+dataset_file_name: Cu-BTA.extxyz
 ase_args:
   format: extxyz
 #include_keys:
