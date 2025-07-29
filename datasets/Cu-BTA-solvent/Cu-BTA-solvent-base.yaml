@@ -32,10 +32,10 @@ model_builders:
 #   ^ global rescaling blocks must always go last!
 
 r_max: 4.0                                                                        # cutoff radius in length units, here Angstrom, this is an important hyperparamter to scan
-num_layers: 6                                                                     # number of interaction blocks, we find 3-5 to work best
+num_layers: 4                                                                     # number of interaction blocks, we find 3-5 to work best
 
 
-l_max: 1                                                                  # the maximum irrep order (rotation order) for the network's features, l=1 is a good default, l=2 is more accurate but slower
+l_max: 2                                                                  # the maximum irrep order (rotation order) for the network's features, l=1 is a good default, l=2 is more accurate but slower
 parity: true                                                                      # whether to include features with odd mirror parityy; often turning parity off gives equally good results but faster networks, so do consider this
 num_features: 32                                                                  # the multiplicity of the features, 32 is a good default for accurate network, if you want to be more accurate, go larger, if you want to be faster, go lower
 
@@ -206,7 +206,7 @@ report_init_validation: false                                                   
 # LR, wall and any keys printed in the log file can be used. 
 # The key can start with Training or validation. If not defined, the validation value will be used.
 early_stopping_patiences:                                                          # stop early if a metric value stopped decreasing for n epochs
-  validation_loss: 50
+  validation_loss: 100
 
 early_stopping_delta:                                                              # If delta is defined, a decrease smaller than delta will not be considered as a decrease
   validation_loss: 0.001
@@ -214,7 +214,7 @@ early_stopping_delta:                                                           
 early_stopping_cumulative_delta: false                                             # If True, the minimum value recorded will not be updated when the decrease is smaller than delta
 
 early_stopping_lower_bounds:                                                       # stop early if a metric value is lower than the bound
-  LR: 1.0e-10
+  LR: 1.0e-6
 
 early_stopping_upper_bounds:                                                       # stop early if a metric value is higher than the bound
   cumulative_wall: 1.0e+100

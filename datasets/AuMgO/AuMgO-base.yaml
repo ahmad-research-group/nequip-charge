@@ -22,7 +22,7 @@ model_builders:
 #   ^ global rescaling blocks must always go last!
 
 r_max: 5.5                                                                        # cutoff radius in length units, here Angstrom, this is an important hyperparamter to scan
-num_layers: 8                                                                     # number of interaction blocks, we find 3-5 to work best
+num_layers: 4                                                                     # number of interaction blocks, we find 3-5 to work best
 
 #qmin: -0.5
 #qmax: 0.5
@@ -182,9 +182,9 @@ save_ema_checkpoint_freq: -1                                                    
 n_train: 3500                                                                        # number of training data
 n_val: 750                                                                           # number of validation data
 learning_rate: 0.005                                                               # learning rate, we found values between 0.01 and 0.005 to work best - this is often one of the most important hyperparameters to tune
-batch_size: 10                                                                      # batch size, we found it important to keep this small for most applications including forces (1-5); for energy-only training, higher batch sizes work better
+batch_size: 15                                                                      # batch size, we found it important to keep this small for most applications including forces (1-5); for energy-only training, higher batch sizes work better
 validation_batch_size: 25                                                         # batch size for evaluating the model during validation. This does not affect the training results, but using the highest value possible (<=n_val) without running out of memory will speed up your training.
-max_epochs: 2000                                                                 # stop training after _ number of epochs, we set a very large number here, it won't take this long in practice and we will use early stopping instead
+max_epochs: 5000                                                                 # stop training after _ number of epochs, we set a very large number here, it won't take this long in practice and we will use early stopping instead
 train_val_split: random                                                            # can be random or sequential. if sequential, first n_train elements are training, next n_val are val, else random, usually random is the right choice
 shuffle: true                                                                      # If true, the data loader will shuffle the data, usually a good idea
 metrics_key: validation_loss                                                       # metrics used for scheduling and saving best model. Options: `set`_`quantity`, set can be either "train" or "validation, "quantity" can be loss or anything that appears in the validation batch step header, such as f_mae, f_rmse, e_mae, e_rmse
@@ -197,7 +197,7 @@ report_init_validation: true                                                    
 # LR, wall and any keys printed in the log file can be used. 
 # The key can start with Training or validation. If not defined, the validation value will be used.
 early_stopping_patiences:                                                          # stop early if a metric value stopped decreasing for n epochs
-  validation_loss: 50
+  validation_loss: 100
 
 early_stopping_delta:                                                              # If delta is defined, a decrease smaller than delta will not be considered as a decrease
   validation_loss: 0.001
@@ -205,7 +205,7 @@ early_stopping_delta:                                                           
 early_stopping_cumulative_delta: false                                             # If True, the minimum value recorded will not be updated when the decrease is smaller than delta
 
 early_stopping_lower_bounds:                                                       # stop early if a metric value is lower than the bound
-  LR: 1.0e-5
+  LR: 1.0e-6
 
 early_stopping_upper_bounds:                                                       # stop early if a metric value is higher than the bound
   cumulative_wall: 1.0e+100
